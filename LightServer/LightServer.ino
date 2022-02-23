@@ -1,6 +1,7 @@
 // Load Wi-Fi library
 #include <WiFi.h>
 #include <WebServer.h>
+#include <DHT.h>   
 
 // Replace with your network credentials
 const char* ssid = "HuyenLinhKhu";
@@ -8,6 +9,11 @@ const char* password =  "1:9:7:3:5@5";
 
 // Set web server port number to 80
 WebServer server(80);
+
+// Dht11 config
+#define DHTPIN 15            // Chân dữ liệu của DHT11 kết nối với GPIO4 của ESP8266
+#define DHTTYPE DHT11       // Loại DHT được sử dụng
+DHT dht(DHTPIN, DHTTYPE);
 
 // Auxiliar variables to store the current output state
 String output23State = "off";
@@ -41,6 +47,7 @@ void handleNotFound() {
 
 void setup() {
   Serial.begin(115200);
+  
   // Initialize the output variables as outputs
   pinMode(output23, OUTPUT);
   pinMode(output18, OUTPUT);
@@ -62,9 +69,26 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
+  // Dht setup
+  dht.begin();
+  Serial.println("Connect to dht11");
+
   server.enableCORS();
+
+  server.on("/dht11", []() {
+    float temp = dht.readTemperature();
+    float humi = dht.readHumidity();
+    if (isnan(temp) || isnan(humi)) {
+      Serial.println("Failed to read from DHT sensor!");
+    }
+    Serial.printf("Nhiet do %s - Do am %s\r\n", String(temp, 1).c_str(), String(humi, 1).c_str());
+    String tempStr = String(temp, 0);
+    String humiStr = String(humi, 0);
+    String res = String(tempStr + " " + humiStr);
+    server.send(200, "text/plain", res);
+  });
   
-  server.on("/23/on", []() {
+  server.on("/led/2/on", []() {
     if (output23State == "off") {
       Serial.println("LED 23 on");
       output23State = "on";
@@ -76,7 +100,7 @@ void setup() {
     }
   });
 
-  server.on("/23/off", []() {
+  server.on("/led/2/off", []() {
     if (output23State == "on"){
       Serial.println("LED 23 off");
       output23State = "off";
@@ -88,7 +112,7 @@ void setup() {
     }
   });
 
-  server.on("/18/on", []() {
+  server.on("/led/1/on", []() {
     if (output18State == "off") {
       Serial.println("LED 18 on");
       output18State = "on";
@@ -100,7 +124,7 @@ void setup() {
     }
   });
 
-  server.on("/18/off", []() {
+  server.on("/led/1/off", []() {
     if (output18State == "on"){
       Serial.println("LED 18 off");
       output18State = "off";
@@ -112,11 +136,11 @@ void setup() {
     }
   });
 
-  server.on("/23/status", []() {
+  server.on("/led/2/status", []() {
     server.send(200, "text/plain", output23State);
   });
 
-  server.on("/18/status", []() {
+  server.on("/led/1/status", []() {
     server.send(200, "text/plain", output18State);
   });
 
